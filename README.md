@@ -18,10 +18,14 @@
 使用 Go 的安装命令直接从 GitHub 安装：
 
 ```bash
-go install github.com/blanplan-ai/ai2mysql-mcp-server/cmd/server@latest
+go install github.com/blanplan-ai/ai2mysql-mcp-server/cmd/ai2mysql-mcp-server@latest
 ```
 
-安装完成后，可执行文件会被放置在 `$GOPATH/bin` 目录下，确保该目录已添加到您的 PATH 环境变量中。
+安装完成后，可以直接在命令行中运行：
+
+```bash
+ai2mysql-mcp-server
+```
 
 ### 方法二：手动构建
 
@@ -31,7 +35,7 @@ git clone https://github.com/blanplan-ai/ai2mysql-mcp-server.git
 cd ai2mysql-mcp-server
 
 # 构建服务器
-go build -o ai2mysql-mcp-server ./cmd/server
+go build -o ai2mysql-mcp-server ./cmd/ai2mysql-mcp-server
 ```
 
 ## 配置
@@ -101,24 +105,17 @@ go build -o ai2mysql-mcp-server ./cmd/server
 
 ### 启动服务器
 
-如果使用方法一安装：
-
-```bash
-# 直接运行
-server
-```
-
-如果使用方法二安装：
+安装后直接运行：
 
 ```bash
 # 使用默认配置文件
-./ai2mysql-mcp-server
+ai2mysql-mcp-server
 
 # 指定配置文件
-./ai2mysql-mcp-server -config=/path/to/config.json
+ai2mysql-mcp-server -config=/path/to/config.json
 
 # 使用环境变量配置
-MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASS=password ./ai2mysql-mcp-server
+MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASS=password ai2mysql-mcp-server
 ```
 
 ### 在 Cursor 中使用
@@ -163,18 +160,18 @@ MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASS=password ./ai2mysql-mcp-server
 ```
 ai2mysql-mcp-server/
 ├── cmd/
-│   └── server/           # 服务器入口
-│       ├── main.go       # 主程序
-│       └── mcp_server.go # MCP 服务器实现
+│   └── ai2mysql-mcp-server/  # 服务器入口
+│       ├── main.go          # 主程序
+│       └── mcp_server.go    # MCP 服务器实现
 ├── pkg/
-│   ├── config/           # 配置管理
+│   ├── config/              # 配置管理
 │   │   └── config.go
-│   └── db/               # 数据库操作
+│   └── db/                  # 数据库操作
 │       └── db.go
-├── go.mod                # Go 模块定义
-├── go.sum                # 依赖校验和
-├── config.json.example   # 配置文件示例
-└── README.md             # 说明文档
+├── go.mod                   # Go 模块定义
+├── go.sum                   # 依赖校验和
+├── config.json.example      # 配置文件示例
+└── README.md                # 说明文档
 ```
 
 ### 依赖
