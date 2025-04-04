@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blanplan-ai/ai2mysql-mcp-server/pkg/config"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/user/ai2mysql-mcp-server/pkg/config"
 )
 
 // DBManager 数据库连接管理器
