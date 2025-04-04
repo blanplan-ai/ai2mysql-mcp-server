@@ -1,4 +1,4 @@
-module github.com/user/ai2mysql-mcp-server
+module github.com/blanplan-ai/ai2mysql-mcp-server
 
 go 1.21.4
 

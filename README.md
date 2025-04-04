@@ -15,7 +15,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/user/ai2mysql-mcp-server.git
+git clone https://github.com/blanplan-ai/ai2mysql-mcp-server.git
 cd ai2mysql-mcp-server
 
 # 构建服务器
