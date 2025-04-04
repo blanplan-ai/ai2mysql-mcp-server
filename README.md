@@ -13,6 +13,18 @@
 
 ## 安装
 
+### 方法一：直接安装（推荐）
+
+使用 Go 的安装命令直接从 GitHub 安装：
+
+```bash
+go install github.com/blanplan-ai/ai2mysql-mcp-server/cmd/server@latest
+```
+
+安装完成后，可执行文件会被放置在 `$GOPATH/bin` 目录下，确保该目录已添加到您的 PATH 环境变量中。
+
+### 方法二：手动构建
+
 ```bash
 # 克隆仓库
 git clone https://github.com/blanplan-ai/ai2mysql-mcp-server.git
@@ -88,6 +100,15 @@ go build -o ai2mysql-mcp-server ./cmd/server
 ## 使用方法
 
 ### 启动服务器
+
+如果使用方法一安装：
+
+```bash
+# 直接运行
+server
+```
+
+如果使用方法二安装：
 
 ```bash
 # 使用默认配置文件

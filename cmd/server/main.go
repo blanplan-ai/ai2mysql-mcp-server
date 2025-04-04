@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/user/ai2mysql-mcp-server/pkg/config"
-	"github.com/user/ai2mysql-mcp-server/pkg/db"
+	"github.com/blanplan-ai/ai2mysql-mcp-server/pkg/config"
+	"github.com/blanplan-ai/ai2mysql-mcp-server/pkg/db"
 )
 
 var (

@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/user/ai2mysql-mcp-server/pkg/config"
-	"github.com/user/ai2mysql-mcp-server/pkg/db"
+	"github.com/blanplan-ai/ai2mysql-mcp-server/pkg/config"
+	"github.com/blanplan-ai/ai2mysql-mcp-server/pkg/db"
 )
 
 // MCPMessage 表示MCP的请求或响应消息
