@@ -1,0 +1,17 @@
+{
+  "databases": {
+    "default": {
+      "host": "localhost",
+      "port": 3306,
+      "user": "root",
+      "password": "12345678",
+      "dbname": "test"
+    }
+  },
+  "permission": {
+    "allow_query": true,
+    "allow_insert": false,
+    "allow_update": false,
+    "allow_delete": false
+  }
+} 

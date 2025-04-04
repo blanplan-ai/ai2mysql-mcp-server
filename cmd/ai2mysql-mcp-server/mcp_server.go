@@ -70,20 +70,30 @@ func NewMCPServer(dbManager *db.DBManager, cfg *config.Config) *MCPServer {
 
 // Run 运行服务器
 func (s *MCPServer) Run() error {
+	// 打印启动信息到标准错误
+	fmt.Fprintf(os.Stderr, "MySQL MCP 服务器已启动，等待客户端连接...\n")
+	fmt.Fprintf(os.Stderr, "服务器支持以下工具: mcp_mysql_query, mcp_mysql_execute\n")
+
 	// 无限循环处理请求
 	for {
 		// 读取一行数据（JSON-RPC 消息）
+		fmt.Fprintf(os.Stderr, "等待客户端请求...\n")
 		line, err := s.reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
+				fmt.Fprintf(os.Stderr, "客户端连接已关闭\n")
 				return nil // 正常退出
 			}
+			fmt.Fprintf(os.Stderr, "读取请求失败: %v\n", err)
 			return fmt.Errorf("读取请求失败: %v", err)
 		}
+
+		fmt.Fprintf(os.Stderr, "收到原始请求: %s\n", line)
 
 		// 解析JSON-RPC消息
 		var message MCPMessage
 		if err := json.Unmarshal([]byte(line), &message); err != nil {
+			fmt.Fprintf(os.Stderr, "解析JSON失败: %v\n", err)
 			s.sendError(nil, -32700, "解析JSON失败", err.Error())
 			continue
 		}
@@ -96,6 +106,8 @@ func (s *MCPServer) Run() error {
 // handleMessage 处理MCP消息
 func (s *MCPServer) handleMessage(message MCPMessage) {
 	// 判断消息类型和方法
+	fmt.Fprintf(os.Stderr, "处理消息, 方法: %s, ID: %v\n", message.Method, message.ID)
+
 	switch message.Method {
 	case "mcp/initialize":
 		// 初始化请求
@@ -105,12 +117,16 @@ func (s *MCPServer) handleMessage(message MCPMessage) {
 		s.handleCallTool(message)
 	default:
 		// 不支持的方法
+		fmt.Fprintf(os.Stderr, "不支持的方法: %s\n", message.Method)
 		s.sendError(message.ID, -32601, "方法不支持", message.Method)
 	}
 }
 
 // handleInitialize 处理初始化请求
 func (s *MCPServer) handleInitialize(message MCPMessage) {
+	// 写入诊断日志
+	fmt.Fprintf(os.Stderr, "收到初始化请求: %+v\n", message)
+
 	// 构造初始化响应
 	info := map[string]interface{}{
 		"name":    "MySQL MCP Server",
@@ -122,6 +138,7 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 		{
 			"name":        "mcp_mysql_query",
 			"description": "执行MySQL查询（只读，SELECT语句）",
+			"type":        "function",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -136,6 +153,7 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 		{
 			"name":        "mcp_mysql_execute",
 			"description": "执行MySQL更新操作（INSERT/UPDATE/DELETE等非查询语句）",
+			"type":        "function",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -163,6 +181,10 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 			"capabilities": capabilities,
 		},
 	}
+
+	// 写入诊断日志
+	respJson, _ := json.Marshal(response)
+	fmt.Fprintf(os.Stderr, "发送初始化响应: %s\n", string(respJson))
 
 	s.sendResponse(response)
 }
@@ -282,13 +304,31 @@ func (s *MCPServer) sendResponse(response MCPMessage) {
 	}
 
 	// 发送响应
-	s.writer.Write(jsonResponse)
-	s.writer.Write([]byte("\n"))
-	s.writer.Flush()
+	_, err = s.writer.Write(jsonResponse)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "写入响应失败: %v\n", err)
+		return
+	}
+
+	_, err = s.writer.Write([]byte("\n"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "写入换行符失败: %v\n", err)
+		return
+	}
+
+	err = s.writer.Flush()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "刷新缓冲区失败: %v\n", err)
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "成功发送响应: %s\n", string(jsonResponse))
 }
 
 // sendError 发送错误响应
 func (s *MCPServer) sendError(id interface{}, code int, message string, data interface{}) {
+	fmt.Fprintf(os.Stderr, "准备发送错误: code=%d, message=%s, data=%v\n", code, message, data)
+
 	response := MCPMessage{
 		JSONRPC: "2.0",
 		ID:      id,
