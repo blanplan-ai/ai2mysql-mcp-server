@@ -247,14 +247,14 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 	protocolVersion := "2024-11-05"
 
 	// 构造初始化响应
-	info := map[string]interface{}{
+	serverInfo := map[string]interface{}{
 		"name":    "MySQL MCP Server",
 		"version": "1.0.0",
 	}
 
-	// 构造工具信息
-	tools := []map[string]interface{}{
-		{
+	// 构造工具信息 - 使用对象而不是数组
+	toolsObj := map[string]interface{}{
+		"mcp_mysql_query": map[string]interface{}{
 			"name":        "mcp_mysql_query",
 			"description": "执行MySQL查询（只读，SELECT语句）",
 			"type":        "function",
@@ -269,7 +269,7 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 				"required": []string{"sql"},
 			},
 		},
-		{
+		"mcp_mysql_execute": map[string]interface{}{
 			"name":        "mcp_mysql_execute",
 			"description": "执行MySQL更新操作（INSERT/UPDATE/DELETE等非查询语句）",
 			"type":        "function",
@@ -288,7 +288,7 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 
 	// 构造完整的capabilities
 	capabilities := map[string]interface{}{
-		"tools": tools,
+		"tools": toolsObj,
 	}
 
 	// 发送初始化响应
@@ -297,7 +297,7 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 		ID:      message.ID,
 		Result: map[string]interface{}{
 			"protocolVersion": protocolVersion,
-			"info":            info,
+			"serverInfo":      serverInfo,
 			"capabilities":    capabilities,
 		},
 	}
