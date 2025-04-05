@@ -5,11 +5,108 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/blanplan-ai/ai2mysql-mcp-server/pkg/config"
 	"github.com/blanplan-ai/ai2mysql-mcp-server/pkg/db"
 )
+
+// Logger 提供日志记录功能
+type Logger struct {
+	debugMode bool
+	logFile   *os.File
+	mu        sync.Mutex
+	logger    *log.Logger
+}
+
+// NewLogger 创建新的日志记录器
+func NewLogger(debugMode bool) (*Logger, error) {
+	l := &Logger{
+		debugMode: debugMode,
+	}
+
+	if debugMode {
+		// 创建日志文件
+		file, err := os.OpenFile("/tmp/ai2mysql.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("无法创建日志文件: %v", err)
+		}
+		l.logFile = file
+		l.logger = log.New(file, "", log.LstdFlags)
+		l.Infof("日志系统初始化成功，正在写入 /tmp/ai2mysql.log")
+	} else {
+		// 使用标准错误输出
+		l.logger = log.New(os.Stderr, "", log.LstdFlags)
+	}
+
+	return l, nil
+}
+
+// Close 关闭日志文件
+func (l *Logger) Close() {
+	if l.logFile != nil {
+		l.logFile.Close()
+	}
+}
+
+// Infof 输出信息级别日志
+func (l *Logger) Infof(format string, args ...interface{}) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// 生成日志消息
+	msg := fmt.Sprintf(format, args...)
+
+	// 在调试模式下写入日志文件
+	if l.logger != nil {
+		l.logger.Printf("[INFO] %s", msg)
+	}
+
+	// 同时总是输出到标准错误（控制台）
+	if !l.debugMode || l.logFile == nil {
+		fmt.Fprintf(os.Stderr, "[INFO] %s\n", msg)
+	}
+}
+
+// Errorf 输出错误级别日志
+func (l *Logger) Errorf(format string, args ...interface{}) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// 生成日志消息
+	msg := fmt.Sprintf(format, args...)
+
+	// 在调试模式下写入日志文件
+	if l.logger != nil {
+		l.logger.Printf("[ERROR] %s", msg)
+	}
+
+	// 同时总是输出到标准错误（控制台）
+	if !l.debugMode || l.logFile == nil {
+		fmt.Fprintf(os.Stderr, "[ERROR] %s\n", msg)
+	}
+}
+
+// Debugf 输出调试级别日志（仅在调试模式下）
+func (l *Logger) Debugf(format string, args ...interface{}) {
+	if !l.debugMode {
+		return // 非调试模式下不输出调试日志
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// 生成日志消息
+	msg := fmt.Sprintf(format, args...)
+
+	// 写入日志文件
+	if l.logger != nil {
+		l.logger.Printf("[DEBUG] %s", msg)
+	}
+}
 
 // MCPMessage 表示MCP的请求或响应消息
 type MCPMessage struct {
@@ -56,44 +153,63 @@ type MCPServer struct {
 	config    *config.Config
 	reader    *bufio.Reader
 	writer    *bufio.Writer
+	logger    *Logger
 }
 
 // NewMCPServer 创建新的MCP服务器
-func NewMCPServer(dbManager *db.DBManager, cfg *config.Config) *MCPServer {
+func NewMCPServer(dbManager *db.DBManager, cfg *config.Config, debugMode bool) (*MCPServer, error) {
+	logger, err := NewLogger(debugMode)
+	if err != nil {
+		return nil, err
+	}
+
 	return &MCPServer{
 		dbManager: dbManager,
 		config:    cfg,
 		reader:    bufio.NewReader(os.Stdin),
 		writer:    bufio.NewWriter(os.Stdout),
-	}
+		logger:    logger,
+	}, nil
 }
 
 // Run 运行服务器
 func (s *MCPServer) Run() error {
-	// 打印启动信息到标准错误
-	fmt.Fprintf(os.Stderr, "MySQL MCP 服务器已启动，等待客户端连接...\n")
-	fmt.Fprintf(os.Stderr, "服务器支持以下工具: mcp_mysql_query, mcp_mysql_execute\n")
+	// 关闭日志
+	defer s.logger.Close()
+
+	// 打印启动信息
+	s.logger.Infof("MySQL MCP 服务器已启动，等待客户端连接...")
+	s.logger.Infof("服务器支持以下工具: mcp_mysql_query, mcp_mysql_execute")
+	s.logger.Debugf("详细配置信息: %+v", s.config)
+
+	// 添加协议版本信息
+	protocolVersion := map[string]interface{}{
+		"major": 1,
+		"minor": 0,
+		"patch": 0,
+	}
+	s.logger.Debugf("服务器协议版本: %v", protocolVersion)
 
 	// 无限循环处理请求
 	for {
 		// 读取一行数据（JSON-RPC 消息）
-		fmt.Fprintf(os.Stderr, "等待客户端请求...\n")
+		s.logger.Debugf("等待客户端请求...")
 		line, err := s.reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				fmt.Fprintf(os.Stderr, "客户端连接已关闭\n")
+				s.logger.Infof("客户端连接已关闭")
 				return nil // 正常退出
 			}
-			fmt.Fprintf(os.Stderr, "读取请求失败: %v\n", err)
+			s.logger.Errorf("读取请求失败: %v", err)
 			return fmt.Errorf("读取请求失败: %v", err)
 		}
 
-		fmt.Fprintf(os.Stderr, "收到原始请求: %s\n", line)
+		s.logger.Debugf("收到原始请求: %s", line)
 
 		// 解析JSON-RPC消息
 		var message MCPMessage
 		if err := json.Unmarshal([]byte(line), &message); err != nil {
-			fmt.Fprintf(os.Stderr, "解析JSON失败: %v\n", err)
+			s.logger.Errorf("解析JSON失败: %v", err)
 			s.sendError(nil, -32700, "解析JSON失败", err.Error())
 			continue
 		}
@@ -106,18 +222,22 @@ func (s *MCPServer) Run() error {
 // handleMessage 处理MCP消息
 func (s *MCPServer) handleMessage(message MCPMessage) {
 	// 判断消息类型和方法
-	fmt.Fprintf(os.Stderr, "处理消息, 方法: %s, ID: %v\n", message.Method, message.ID)
+	s.logger.Infof("处理消息, 方法: %s, ID: %v", message.Method, message.ID)
 
 	switch message.Method {
 	case "mcp/initialize":
 		// 初始化请求
 		s.handleInitialize(message)
+	case "mcp/initialized":
+		// 收到初始化确认通知
+		s.logger.Infof("收到初始化确认通知")
+		// 不需要回复，这是一个通知
 	case "mcp/callTool":
 		// 工具调用请求
 		s.handleCallTool(message)
 	default:
 		// 不支持的方法
-		fmt.Fprintf(os.Stderr, "不支持的方法: %s\n", message.Method)
+		s.logger.Errorf("不支持的方法: %s", message.Method)
 		s.sendError(message.ID, -32601, "方法不支持", message.Method)
 	}
 }
@@ -125,7 +245,14 @@ func (s *MCPServer) handleMessage(message MCPMessage) {
 // handleInitialize 处理初始化请求
 func (s *MCPServer) handleInitialize(message MCPMessage) {
 	// 写入诊断日志
-	fmt.Fprintf(os.Stderr, "收到初始化请求: %+v\n", message)
+	s.logger.Debugf("收到初始化请求: %+v", message)
+
+	// 添加协议版本信息
+	protocolVersion := map[string]interface{}{
+		"major": 1,
+		"minor": 0,
+		"patch": 0,
+	}
 
 	// 构造初始化响应
 	info := map[string]interface{}{
@@ -177,14 +304,15 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 		JSONRPC: "2.0",
 		ID:      message.ID,
 		Result: map[string]interface{}{
-			"info":         info,
-			"capabilities": capabilities,
+			"protocol_version": protocolVersion,
+			"info":             info,
+			"capabilities":     capabilities,
 		},
 	}
 
 	// 写入诊断日志
 	respJson, _ := json.Marshal(response)
-	fmt.Fprintf(os.Stderr, "发送初始化响应: %s\n", string(respJson))
+	s.logger.Debugf("发送初始化响应: %s", string(respJson))
 
 	s.sendResponse(response)
 }
@@ -194,9 +322,13 @@ func (s *MCPServer) handleCallTool(message MCPMessage) {
 	// 解析工具调用参数
 	var params ToolParams
 	if err := json.Unmarshal(message.Params, &params); err != nil {
+		s.logger.Errorf("解析工具参数失败: %v", err)
 		s.sendError(message.ID, -32602, "无效参数", err.Error())
 		return
 	}
+
+	s.logger.Infof("调用工具: %s", params.Name)
+	s.logger.Debugf("工具参数: %s", string(params.Params))
 
 	// 根据工具名称分发处理
 	switch params.Name {
@@ -205,6 +337,7 @@ func (s *MCPServer) handleCallTool(message MCPMessage) {
 	case "mcp_mysql_execute":
 		s.handleMySQLExecute(message.ID, params.Params)
 	default:
+		s.logger.Errorf("不支持的工具: %s", params.Name)
 		s.sendError(message.ID, -32601, "不支持的工具", params.Name)
 	}
 }
@@ -213,6 +346,7 @@ func (s *MCPServer) handleCallTool(message MCPMessage) {
 func (s *MCPServer) handleMySQLQuery(id interface{}, rawParams json.RawMessage) {
 	// 检查查询权限
 	if !s.config.Permission.AllowQuery {
+		s.logger.Errorf("查询操作未被允许")
 		s.sendError(id, -32000, "查询操作未被允许", nil)
 		return
 	}
@@ -220,20 +354,29 @@ func (s *MCPServer) handleMySQLQuery(id interface{}, rawParams json.RawMessage) 
 	// 解析SQL参数
 	var sqlParams SQLParams
 	if err := json.Unmarshal(rawParams, &sqlParams); err != nil {
+		s.logger.Errorf("解析SQL参数失败: %v", err)
 		s.sendError(id, -32602, "无效SQL参数", err.Error())
 		return
 	}
 
+	s.logger.Infof("执行SQL查询: %s", sqlParams.SQL)
+	startTime := time.Now()
+
 	// 执行查询
 	result, err := s.dbManager.Query("default", sqlParams.SQL)
 	if err != nil {
+		s.logger.Errorf("执行查询失败: %v", err)
 		s.sendError(id, -32000, err.Error(), nil)
 		return
 	}
 
+	s.logger.Infof("查询执行完成，耗时: %v，结果行数: %d", time.Since(startTime), len(result.Rows))
+	s.logger.Debugf("查询结果: %+v", result)
+
 	// 构造响应结果
 	jsonResult, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
+		s.logger.Errorf("序列化结果失败: %v", err)
 		s.sendError(id, -32000, "序列化结果失败", err.Error())
 		return
 	}
@@ -260,20 +403,29 @@ func (s *MCPServer) handleMySQLExecute(id interface{}, rawParams json.RawMessage
 	// 解析SQL参数
 	var sqlParams SQLParams
 	if err := json.Unmarshal(rawParams, &sqlParams); err != nil {
+		s.logger.Errorf("解析SQL参数失败: %v", err)
 		s.sendError(id, -32602, "无效SQL参数", err.Error())
 		return
 	}
 
+	s.logger.Infof("执行SQL操作: %s", sqlParams.SQL)
+	startTime := time.Now()
+
 	// 执行操作
 	result, err := s.dbManager.Execute("default", sqlParams.SQL)
 	if err != nil {
+		s.logger.Errorf("执行操作失败: %v", err)
 		s.sendError(id, -32000, err.Error(), nil)
 		return
 	}
 
+	s.logger.Infof("操作执行完成，耗时: %v，影响行数: %d", time.Since(startTime), result.RowsAffected)
+	s.logger.Debugf("操作结果: %+v", result)
+
 	// 构造响应结果
 	jsonResult, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
+		s.logger.Errorf("序列化结果失败: %v", err)
 		s.sendError(id, -32000, "序列化结果失败", err.Error())
 		return
 	}
@@ -299,35 +451,35 @@ func (s *MCPServer) handleMySQLExecute(id interface{}, rawParams json.RawMessage
 func (s *MCPServer) sendResponse(response MCPMessage) {
 	jsonResponse, err := json.Marshal(response)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "序列化响应失败: %v\n", err)
+		s.logger.Errorf("序列化响应失败: %v", err)
 		return
 	}
 
 	// 发送响应
 	_, err = s.writer.Write(jsonResponse)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "写入响应失败: %v\n", err)
+		s.logger.Errorf("写入响应失败: %v", err)
 		return
 	}
 
 	_, err = s.writer.Write([]byte("\n"))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "写入换行符失败: %v\n", err)
+		s.logger.Errorf("写入换行符失败: %v", err)
 		return
 	}
 
 	err = s.writer.Flush()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "刷新缓冲区失败: %v\n", err)
+		s.logger.Errorf("刷新缓冲区失败: %v", err)
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "成功发送响应: %s\n", string(jsonResponse))
+	s.logger.Debugf("成功发送响应: %s", string(jsonResponse))
 }
 
 // sendError 发送错误响应
 func (s *MCPServer) sendError(id interface{}, code int, message string, data interface{}) {
-	fmt.Fprintf(os.Stderr, "准备发送错误: code=%d, message=%s, data=%v\n", code, message, data)
+	s.logger.Errorf("准备发送错误: code=%d, message=%s, data=%v", code, message, data)
 
 	response := MCPMessage{
 		JSONRPC: "2.0",

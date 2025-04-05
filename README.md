@@ -10,6 +10,7 @@
 - 支持数据操作（INSERT/UPDATE/DELETE）
 - 权限控制（可分别配置查询、插入、更新、删除权限）
 - 支持通过环境变量或JSON配置文件进行灵活配置
+- 支持调试模式，将详细日志输出到文件
 
 ## 安装
 
@@ -116,7 +117,12 @@ ai2mysql-mcp-server -config=/path/to/config.json
 
 # 使用环境变量配置
 MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASS=password ai2mysql-mcp-server
+
+# 启用调试模式
+ai2mysql-mcp-server -debug=true
 ```
+
+启用调试模式后，详细日志将输出到 `/tmp/ai2mysql.log` 文件中，包含完整的请求、响应和错误信息。
 
 ### 在 Cursor 中使用
 
@@ -178,6 +184,31 @@ ai2mysql-mcp-server/
 
 - [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql): MySQL 驱动
 - [ThinkInAIXYZ/go-mcp](https://github.com/ThinkInAIXYZ/go-mcp): MCP 协议库
+
+## 调试与故障排除
+
+### 调试模式
+
+使用 `-debug=true` 参数启动服务器可以启用调试模式：
+
+```bash
+ai2mysql-mcp-server -debug=true
+```
+
+调试模式下，服务器会将详细的日志输出到 `/tmp/ai2mysql.log` 文件中，包括：
+
+- 所有收到的请求和发送的响应
+- SQL 查询和执行的详细信息
+- 错误和异常情况
+- 性能相关信息（如查询执行时间）
+
+### 常见问题
+
+如果在 Cursor 中遇到问题：
+
+1. **工具未显示**: 检查 Cursor 配置文件中的命令路径是否正确，确保可执行文件存在并有执行权限
+2. **连接失败**: 检查数据库连接信息是否正确，使用调试模式查看详细错误信息
+3. **权限问题**: 默认只允许查询操作，检查是否需要启用插入/更新/删除权限
 
 ## 许可证
 

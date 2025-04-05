@@ -13,10 +13,12 @@ import (
 
 var (
 	configPath string
+	debugMode  bool
 )
 
 func init() {
 	flag.StringVar(&configPath, "config", "config.json", "配置文件路径")
+	flag.BoolVar(&debugMode, "debug", false, "启用调试模式，将日志输出到/tmp/ai2mysql.log")
 }
 
 func main() {
@@ -51,8 +53,16 @@ func main() {
 	}
 
 	// 启动MCP服务器
-	server := NewMCPServer(dbManager, cfg)
+	server, err := NewMCPServer(dbManager, cfg, debugMode)
+	if err != nil {
+		log.Fatalf("创建MCP服务器失败: %v", err)
+	}
+
 	log.Printf("MySQL MCP 服务器已启动，等待连接...")
+	if debugMode {
+		log.Printf("调试模式已启用，日志将输出到 /tmp/ai2mysql.log")
+	}
+
 	if err := server.Run(); err != nil {
 		log.Fatalf("服务器运行失败: %v", err)
 	}
