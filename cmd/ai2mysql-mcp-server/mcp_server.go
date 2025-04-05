@@ -316,9 +316,9 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 func (s *MCPServer) handleToolsList(message MCPMessage) {
 	s.logger.Debugf("收到工具列表请求: %+v", message)
 
-	// 构造工具信息 - 使用对象格式
-	toolsObj := map[string]interface{}{
-		"mcp_mysql_query": map[string]interface{}{
+	// 构造工具数组 - tools/list 需要返回数组格式
+	toolsArray := []map[string]interface{}{
+		{
 			"name":        "mcp_mysql_query",
 			"description": "执行MySQL查询（只读，SELECT语句）",
 			"type":        "function",
@@ -333,7 +333,7 @@ func (s *MCPServer) handleToolsList(message MCPMessage) {
 				"required": []string{"sql"},
 			},
 		},
-		"mcp_mysql_execute": map[string]interface{}{
+		{
 			"name":        "mcp_mysql_execute",
 			"description": "执行MySQL更新操作（INSERT/UPDATE/DELETE等非查询语句）",
 			"type":        "function",
@@ -350,11 +350,13 @@ func (s *MCPServer) handleToolsList(message MCPMessage) {
 		},
 	}
 
-	// 发送响应
+	// 发送响应 - 将工具数组放在名为tools的字段中
 	response := MCPMessage{
 		JSONRPC: "2.0",
 		ID:      message.ID,
-		Result:  toolsObj,
+		Result: map[string]interface{}{
+			"tools": toolsArray,
+		},
 	}
 
 	// 写入诊断日志
