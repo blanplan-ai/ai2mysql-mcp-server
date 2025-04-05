@@ -131,6 +131,12 @@ type ToolParams struct {
 	Params json.RawMessage `json:"params"`
 }
 
+// ToolCallParams tools/call方法的参数格式
+type ToolCallParams struct {
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
+}
+
 // SQLParams SQL参数
 type SQLParams struct {
 	SQL string `json:"sql"`
@@ -233,6 +239,9 @@ func (s *MCPServer) handleMessage(message MCPMessage) {
 		s.handleToolsList(message)
 	case "mcp/callTool":
 		// 工具调用请求
+		s.handleCallTool(message)
+	case "tools/call":
+		// 工具调用请求（新版MCP协议）
 		s.handleCallTool(message)
 	default:
 		// 不支持的方法
@@ -368,26 +377,46 @@ func (s *MCPServer) handleToolsList(message MCPMessage) {
 
 // handleCallTool 处理工具调用请求
 func (s *MCPServer) handleCallTool(message MCPMessage) {
-	// 解析工具调用参数
-	var params ToolParams
-	if err := json.Unmarshal(message.Params, &params); err != nil {
-		s.logger.Errorf("解析工具参数失败: %v", err)
-		s.sendError(message.ID, -32602, "无效参数", err.Error())
-		return
+	var toolName string
+	var toolParams json.RawMessage
+
+	// 根据不同的方法解析参数
+	if message.Method == "tools/call" {
+		// 解析tools/call方法的参数格式
+		var params ToolCallParams
+		if err := json.Unmarshal(message.Params, &params); err != nil {
+			s.logger.Errorf("解析工具参数失败: %v", err)
+			s.sendError(message.ID, -32602, "无效参数", err.Error())
+			return
+		}
+		toolName = params.Name
+		toolParams = params.Arguments
+		s.logger.Debugf("使用tools/call格式解析参数: name=%s, arguments=%s", toolName, string(toolParams))
+	} else {
+		// 解析mcp/callTool方法的参数格式
+		var params ToolParams
+		if err := json.Unmarshal(message.Params, &params); err != nil {
+			s.logger.Errorf("解析工具参数失败: %v", err)
+			s.sendError(message.ID, -32602, "无效参数", err.Error())
+			return
+		}
+		toolName = params.Name
+		toolParams = params.Params
+		s.logger.Debugf("使用mcp/callTool格式解析参数: name=%s, params=%s", toolName, string(toolParams))
 	}
 
-	s.logger.Infof("调用工具: %s", params.Name)
-	s.logger.Debugf("工具参数: %s", string(params.Params))
+	s.logger.Infof("调用工具: %s", toolName)
+	s.logger.Debugf("工具参数: %s", string(toolParams))
 
 	// 根据工具名称分发处理
-	switch params.Name {
+	switch toolName {
 	case "mcp_mysql_query":
-		s.handleMySQLQuery(message.ID, params.Params)
+		s.handleMySQLQuery(message.ID, toolParams)
 	case "mcp_mysql_execute":
-		s.handleMySQLExecute(message.ID, params.Params)
+		s.handleMySQLExecute(message.ID, toolParams)
 	default:
-		s.logger.Errorf("不支持的工具: %s", params.Name)
-		s.sendError(message.ID, -32601, "不支持的工具", params.Name)
+		s.logger.Errorf("不支持的工具: %s", toolName)
+		s.sendError(message.ID, -32601, "不支持的工具", toolName)
 	}
 }
 
