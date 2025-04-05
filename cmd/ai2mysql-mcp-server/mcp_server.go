@@ -225,10 +225,10 @@ func (s *MCPServer) handleMessage(message MCPMessage) {
 	s.logger.Infof("处理消息, 方法: %s, ID: %v", message.Method, message.ID)
 
 	switch message.Method {
-	case "mcp/initialize":
+	case "initialize":
 		// 初始化请求
 		s.handleInitialize(message)
-	case "mcp/initialized":
+	case "initialized":
 		// 收到初始化确认通知
 		s.logger.Infof("收到初始化确认通知")
 		// 不需要回复，这是一个通知
@@ -304,9 +304,9 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 		JSONRPC: "2.0",
 		ID:      message.ID,
 		Result: map[string]interface{}{
-			"protocol_version": protocolVersion,
-			"info":             info,
-			"capabilities":     capabilities,
+			"protocolVersion": protocolVersion,
+			"info":            info,
+			"capabilities":    capabilities,
 		},
 	}
 
