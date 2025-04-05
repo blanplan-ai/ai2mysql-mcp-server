@@ -183,11 +183,7 @@ func (s *MCPServer) Run() error {
 	s.logger.Debugf("详细配置信息: %+v", s.config)
 
 	// 添加协议版本信息
-	protocolVersion := map[string]interface{}{
-		"major": 1,
-		"minor": 0,
-		"patch": 0,
-	}
+	protocolVersion := "2024-11-05"
 	s.logger.Debugf("服务器协议版本: %v", protocolVersion)
 
 	// 无限循环处理请求
@@ -247,12 +243,8 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 	// 写入诊断日志
 	s.logger.Debugf("收到初始化请求: %+v", message)
 
-	// 添加协议版本信息
-	protocolVersion := map[string]interface{}{
-		"major": 1,
-		"minor": 0,
-		"patch": 0,
-	}
+	// 添加协议版本信息 - 使用字符串格式
+	protocolVersion := "2024-11-05"
 
 	// 构造初始化响应
 	info := map[string]interface{}{
