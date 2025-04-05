@@ -228,6 +228,9 @@ func (s *MCPServer) handleMessage(message MCPMessage) {
 		// 收到初始化确认通知
 		s.logger.Infof("收到初始化确认通知")
 		// 不需要回复，这是一个通知
+	case "tools/list":
+		// 工具列表请求
+		s.handleToolsList(message)
 	case "mcp/callTool":
 		// 工具调用请求
 		s.handleCallTool(message)
@@ -305,6 +308,58 @@ func (s *MCPServer) handleInitialize(message MCPMessage) {
 	// 写入诊断日志
 	respJson, _ := json.Marshal(response)
 	s.logger.Debugf("发送初始化响应: %s", string(respJson))
+
+	s.sendResponse(response)
+}
+
+// handleToolsList 处理工具列表请求
+func (s *MCPServer) handleToolsList(message MCPMessage) {
+	s.logger.Debugf("收到工具列表请求: %+v", message)
+
+	// 构造工具信息 - 使用对象格式
+	toolsObj := map[string]interface{}{
+		"mcp_mysql_query": map[string]interface{}{
+			"name":        "mcp_mysql_query",
+			"description": "执行MySQL查询（只读，SELECT语句）",
+			"type":        "function",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"sql": map[string]interface{}{
+						"type":        "string",
+						"description": "要执行的SQL查询语句",
+					},
+				},
+				"required": []string{"sql"},
+			},
+		},
+		"mcp_mysql_execute": map[string]interface{}{
+			"name":        "mcp_mysql_execute",
+			"description": "执行MySQL更新操作（INSERT/UPDATE/DELETE等非查询语句）",
+			"type":        "function",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"sql": map[string]interface{}{
+						"type":        "string",
+						"description": "要执行的SQL语句",
+					},
+				},
+				"required": []string{"sql"},
+			},
+		},
+	}
+
+	// 发送响应
+	response := MCPMessage{
+		JSONRPC: "2.0",
+		ID:      message.ID,
+		Result:  toolsObj,
+	}
+
+	// 写入诊断日志
+	respJson, _ := json.Marshal(response)
+	s.logger.Debugf("发送工具列表响应: %s", string(respJson))
 
 	s.sendResponse(response)
 }
