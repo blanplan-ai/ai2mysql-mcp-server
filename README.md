@@ -1,139 +1,114 @@
 # MySQL MCP Server
 
-基于 [Model Context Protocol (MCP)](https://github.com/ThinkInAIXYZ/go-mcp) 的 MySQL 数据库连接服务器，支持通过 stdio 方式与客户端通信，允许执行 SQL 查询和数据操作。
+A MySQL database connection server built on [go-mcp](https://github.com/ThinkInAIXYZ/go-mcp), supporting communication with clients via stdio, allowing execution of SQL queries and data manipulation operations.
 
-## 功能特性
+## Features
 
-- 通过 MCP 协议与客户端通信
-- 支持连接多个 MySQL 数据库
-- 支持查询操作（SELECT）
-- 支持数据操作（INSERT/UPDATE/DELETE）
-- 权限控制（可分别配置查询、插入、更新、删除权限）
-- 支持通过环境变量或JSON配置文件进行灵活配置
-- 支持调试模式，将详细日志输出到文件
+- Communicates with clients through the MCP protocol
+- Supports connection to MySQL databases
+- Supports query operations (SELECT, SHOW, DESCRIBE)
+- Supports data manipulation operations (INSERT/UPDATE/DELETE)
+- Permission control (configurable for insert, update, delete operations)
+- Flexible configuration via environment variables
+- Debug mode with detailed logging to file
 
-## 安装
+## Installation
 
-### 方法一：直接安装（推荐）
+### Method 1: Direct Installation (Recommended)
 
-使用 Go 的安装命令直接从 GitHub 安装：
+Install directly from GitHub using Go's install command:
 
 ```bash
 go install github.com/blanplan-ai/ai2mysql-mcp-server/cmd/ai2mysql-mcp-server@latest
 ```
 
-安装完成后，可以直接在命令行中运行：
+### Method 2: Manual Build
 
 ```bash
-ai2mysql-mcp-server
-```
-
-### 方法二：手动构建
-
-```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/blanplan-ai/ai2mysql-mcp-server.git
 cd ai2mysql-mcp-server
 
-# 构建服务器
+# Build the server
 go build -o ai2mysql-mcp-server ./cmd/ai2mysql-mcp-server
 ```
 
-## 配置
+## Configuration
 
-服务器支持两种配置方式：环境变量和JSON配置文件。当环境变量存在时，会优先使用环境变量的配置。
+The server is configured using environment variables.
 
-### 环境变量配置
+### Environment Variables
 
-可以设置以下环境变量来配置服务器：
+The following environment variables can be set to configure the server:
 
-| 环境变量 | 说明 | 默认值 |
+| Environment Variable | Description | Default Value |
 |---------|------|--------|
-| `MYSQL_HOST` | MySQL 主机地址 | localhost |
-| `MYSQL_PORT` | MySQL 端口号 | 3306 |
-| `MYSQL_USER` | MySQL 用户名 | root |
-| `MYSQL_PASS` | MySQL 密码 | (空) |
-| `DEFAULT_DATABASE` | 默认数据库名 | test |
-| `ALLOW_INSERT` | 是否允许插入操作 | false |
-| `ALLOW_UPDATE` | 是否允许更新操作 | false |
-| `ALLOW_DELETE` | 是否允许删除操作 | false |
+| `MYSQL_HOST` | MySQL host address | 127.0.0.1 |
+| `MYSQL_PORT` | MySQL port number | 3306 |
+| `MYSQL_USER` | MySQL username | root |
+| `MYSQL_PASS` | MySQL password | password |
+| `DEFAULT_DATABASE` | Default database name | test |
+| `ALLOW_INSERT` | Whether to allow INSERT operations | false |
+| `ALLOW_UPDATE` | Whether to allow UPDATE operations | false |
+| `ALLOW_DELETE` | Whether to allow DELETE operations | false |
+| `IS_DEV` | Enable development mode with detailed logging | false |
+| `LOG_PATH` | Path to the log file (only effective in dev mode) | /tmp/ai2mysql.log |
 
-### JSON配置文件
+### JSON Configuration Example
 
-如果未设置环境变量，服务器将使用JSON配置文件。默认配置文件名为 `config.json`，可以通过 `-config` 参数指定其他配置文件。
-
-配置文件示例：
+Below is an example JSON configuration you can use to set environment variables:
 
 ```json
 {
-  "databases": {
-    "default": {
-      "host": "localhost",
-      "port": 3306,
-      "user": "root",
-      "password": "",
-      "dbname": "test"
-    },
-    "other_db": {
-      "host": "localhost",
-      "port": 3306,
-      "user": "root",
-      "password": "",
-      "dbname": "other_database"
-    }
-  },
-  "permission": {
-    "allow_query": true,
-    "allow_insert": false,
-    "allow_update": false,
-    "allow_delete": false
-  }
+  "MYSQL_HOST": "127.0.0.1",
+  "MYSQL_PORT": "3306",
+  "MYSQL_USER": "root",
+  "MYSQL_PASS": "password",
+  "DEFAULT_DATABASE": "test",
+  "ALLOW_INSERT": "false",
+  "ALLOW_UPDATE": "false",
+  "ALLOW_DELETE": "false",
+  "IS_DEV": "false",
+  "LOG_PATH": "/tmp/ai2mysql.log"
 }
 ```
 
-配置说明：
+Configuration notes:
 
-- `databases`: 配置多个数据库连接
-  - `default`: 默认数据库（必需）
-  - 可以添加其他数据库配置
-- `permission`: 权限配置
-  - `allow_query`: 是否允许查询操作（默认：true）
-  - `allow_insert`: 是否允许插入操作（默认：false）
-  - `allow_update`: 是否允许更新操作（默认：false）
-  - `allow_delete`: 是否允许删除操作（默认：false）
+- All boolean type configuration items use the string "true" or "false"
+- In production environments, it is recommended to disable IS_DEV to prevent sensitive information leakage
+- It is recommended to restrict INSERT/UPDATE/DELETE permissions based on actual needs
+- Sensitive information such as passwords should be configured using environment variables
 
-## 使用方法
+## Usage
 
-### 启动服务器
+### Starting the Server
 
-安装后直接运行：
+Run the server after installation:
 
 ```bash
-# 使用默认配置文件
+# Run with default settings
 ai2mysql-mcp-server
 
-# 指定配置文件
-ai2mysql-mcp-server -config=/path/to/config.json
-
-# 使用环境变量配置
+# Run with environment variables
 MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASS=password ai2mysql-mcp-server
 
-# 启用调试模式
-ai2mysql-mcp-server -debug=true
+# Enable development mode
+IS_DEV=true ai2mysql-mcp-server
 ```
 
-启用调试模式后，详细日志将输出到 `/tmp/ai2mysql.log` 文件中，包含完整的请求、响应和错误信息。
+When development mode is enabled, detailed logs will be output to the configured log file (default: `/tmp/ai2mysql.log`), including complete request, response, and error information.
 
-### 在 Cursor 中使用
+### Using with Cursor
 
-本服务器设计为与支持 MCP 协议的客户端（如 Cursor）配合使用。
+This server is designed to work with clients that support the MCP protocol, such as Cursor.
 
-在 Cursor 中，可以通过以下配置启用 MySQL MCP 服务器：
+In Cursor, you can enable the MySQL MCP server with the following configuration:
 
 ```json
 {
   "mcpServers": {
-    "ai2mysql-mcp-server": {
+    "mysql-mcp-server": {
       "command": "ai2mysql-mcp-server",
       "args": [],
       "env": {
@@ -141,75 +116,66 @@ ai2mysql-mcp-server -debug=true
         "MYSQL_PORT": "3306",
         "MYSQL_USER": "root",
         "MYSQL_PASS": "password",
-        "DEFAULT_DATABASE": "test",  // 默认数据库，可选
-        "ALLOW_INSERT": "false",     // 是否允许插入，可选
-        "ALLOW_UPDATE": "false",     // 是否允许更新，可选
-        "ALLOW_DELETE": "false"      // 是否允许删除，可选
+        "DEFAULT_DATABASE": "test",   // Default database, optional
+        "ALLOW_INSERT": "false",      // Allow insert operations, optional
+        "ALLOW_UPDATE": "false",      // Allow update operations, optional
+        "ALLOW_DELETE": "false",      // Allow delete operations, optional
+        "IS_DEV": "false"             // Enable development mode, optional
       }
     }
   }
 }
 ```
 
-添加配置后，你可以通过工具调用使用以下功能：
+After adding the configuration, you can use the following tools:
 
-1. `mcp_mysql_query`: 执行 SQL 查询操作
-   - 参数: `sql` - SQL 查询语句
+1. `mysql_query`: Execute SQL query operations
+   - Parameter: `sql` - SQL query statement (SELECT, SHOW, DESCRIBE)
 
-2. `mcp_mysql_execute`: 执行 SQL 数据操作
-   - 参数: `sql` - SQL 数据操作语句（INSERT/UPDATE/DELETE）
+2. `mysql_execute`: Execute SQL data manipulation operations
+   - Parameter: `sql` - SQL data manipulation statement (INSERT/UPDATE/DELETE)
 
-## 开发
+## Development
 
-### 项目结构
+### Project Structure
 
 ```
 ai2mysql-mcp-server/
-├── cmd/
-│   └── ai2mysql-mcp-server/  # 服务器入口
-│       ├── main.go          # 主程序
-│       └── mcp_server.go    # MCP 服务器实现
-├── pkg/
-│   ├── config/              # 配置管理
-│   │   └── config.go
-│   └── db/                  # 数据库操作
-│       └── db.go
-├── go.mod                   # Go 模块定义
-├── go.sum                   # 依赖校验和
-├── config.json.example      # 配置文件示例
-└── README.md                # 说明文档
+└── cmd/
+    └── ai2mysql-mcp-server/  # Server entry
+        └── main.go          # Main program
 ```
 
-### 依赖
+### Dependencies
 
-- [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql): MySQL 驱动
-- [ThinkInAIXYZ/go-mcp](https://github.com/ThinkInAIXYZ/go-mcp): MCP 协议库
+- [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql): MySQL driver
+- [ThinkInAIXYZ/go-mcp](https://github.com/ThinkInAIXYZ/go-mcp): MCP protocol library
 
-## 调试与故障排除
+## Debugging and Troubleshooting
 
-### 调试模式
+### Debug Mode
 
-使用 `-debug=true` 参数启动服务器可以启用调试模式：
+Set the environment variable `IS_DEV=true` to enable debug mode:
 
 ```bash
-ai2mysql-mcp-server -debug=true
+IS_DEV=true ai2mysql-mcp-server
 ```
 
-调试模式下，服务器会将详细的日志输出到 `/tmp/ai2mysql.log` 文件中，包括：
+In debug mode, the server will output detailed logs to the specified log file, including:
 
-- 所有收到的请求和发送的响应
-- SQL 查询和执行的详细信息
-- 错误和异常情况
-- 性能相关信息（如查询执行时间）
+- All received requests and sent responses
+- Detailed SQL query and execution information
+- Error and exception conditions
+- Performance-related information (such as query execution time)
 
-### 常见问题
+### Common Issues
 
-如果在 Cursor 中遇到问题：
+If you encounter problems in Cursor:
 
-1. **工具未显示**: 检查 Cursor 配置文件中的命令路径是否正确，确保可执行文件存在并有执行权限
-2. **连接失败**: 检查数据库连接信息是否正确，使用调试模式查看详细错误信息
-3. **权限问题**: 默认只允许查询操作，检查是否需要启用插入/更新/删除权限
+1. **Tool not displayed**: Check if the command path in the Cursor configuration file is correct, ensure the executable exists and has execution permissions
+2. **Connection failed**: Check if the database connection information is correct, use debug mode to view detailed error messages
+3. **Permission issues**: By default only query operations are allowed, check if you need to enable insert/update/delete permissions
 
-## 许可证
+## License
 
 MIT License
